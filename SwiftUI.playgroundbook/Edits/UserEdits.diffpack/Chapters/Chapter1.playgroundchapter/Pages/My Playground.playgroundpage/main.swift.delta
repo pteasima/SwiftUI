@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Diff</key>
+	<array>
+		<dict>
+			<key>ModifiedContent</key>
+			<string>import SwiftUI
+
+var observeTime: (TimeInterval, @escaping (Date) -&gt; Void) -&gt; Void = { interval, callback in
+    let t = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) {
+        callback($0.fireDate)
+    }
+}
+
+typealias Effect&lt;Action&gt; = (@escaping (Action) -&gt; Void) -&gt; Void
+
+enum AppAction {
+    case newDate(Date)
+}
+
+struct AppState {
+    var currentTime: Date
+    
+    mutating func update(action: AppAction) -&gt; Effect&lt;AppAction&gt; {
+        { callback in
+            
+        }
+    }
+    
+}
+
+
+
+struct AppView: View {
+    var body: some View {
+        ClockView(date: .constant(Date()))
+    }
+}
+
+struct ClockView: View {
+    @Environment(\.calendar) var calendar
+    @Binding var date: Date
+    
+    func radians(for component: Calendar.Component) -&gt; CGFloat {
+        let percent = CGFloat(calendar.component(component, from: date)) / CGFloat(component.maxValue)
+        return percent * 2 * CGFloat.pi
+    }
+    
+    var body: some View {
+        VStack {
+            Text(String(describing: date))
+            ZStack{ 
+                Circle()
+                    .foregroundColor(Color(.gray))
+                Rectangle()
+                .frame(width: 8, height: 250)
+                .transformEffect(CGAffineTransform.identity.translatedBy(x: 0, y: 125)
+                    .rotated(by: radians(for: .minute))
+                    .translatedBy(x: 0, y: -250)
+                )
+                Rectangle()
+                .frame(width: 8, height: 280)
+                .transformEffect(CGAffineTransform.identity.translatedBy(x: 0, y: 140)
+                .rotated(by: radians(for: .second))
+                .translatedBy(x: 0, y: -280)
+                )
+                Rectangle()
+                .frame(width: 10, height: 10)
+            }
+        }
+        
+    }
+}
+
+
+import PlaygroundSupport
+
+PlaygroundPage.current.setLiveView(AppView())
+</string>
+			<key>ModifiedRange</key>
+			<string>{0, 1862}</string>
+			<key>OriginalContent</key>
+			<string>
+</string>
+			<key>OriginalRange</key>
+			<string>{0, 1}</string>
+		</dict>
+	</array>
+	<key>File</key>
+	<string>Chapters/Chapter1.playgroundchapter/Pages/My Playground.playgroundpage/main.swift</string>
+</dict>
+</plist>
