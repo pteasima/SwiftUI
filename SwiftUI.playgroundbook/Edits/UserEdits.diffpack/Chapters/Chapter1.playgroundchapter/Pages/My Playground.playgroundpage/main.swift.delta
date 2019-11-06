@@ -1,0 +1,235 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Diffs</key>
+	<array>
+		<dict>
+			<key>ModifiedContent</key>
+			<string>import SwiftUI
+import Combine
+import PlaygroundSupport
+
+var log: (String) -&gt; Void = { _ in }
+
+struct Tagged&lt;Tag, RawValue&gt; {
+    var rawValue: RawValue
+}
+
+private var trackers: [String: Any] = [:]
+func runTracker&lt;Input, Output&gt;(uuid: Tracker&lt;Input, Output&gt;.ID, input: Input, callback: @escaping (Output) -&gt; Void) {
+    guard let action = trackers[uuid.rawValue] as? (Input, @escaping (Output) -&gt; Void) -&gt; Void else {
+        assertionFailure("tried to run non-existent or malformed tracker"); return
+    }
+    action(input, callback)
+}
+func registerTracker&lt;Input, Output&gt;(_ tracker: Tracker&lt;Input, Output&gt;, action: @escaping (Input, @escaping (Output) -&gt; Void) -&gt; Void) {
+    trackers[tracker.uuid.rawValue] = action
+}
+typealias Effect&lt;Action&gt; = (@escaping (Action) -&gt; Void) -&gt; Void
+struct Tracker&lt;Input, Output&gt; {
+    typealias ID = Tagged&lt;Tracker, String&gt;
+    fileprivate var uuid: ID = ID(rawValue: UUID().uuidString)
+    func run&lt;Action&gt;(with input: Input, action transform: @escaping (Output) -&gt; Action) -&gt; Effect&lt;Action&gt; {
+    { callback in
+        runTracker(uuid: self.uuid, input: input) { callback(transform($0))
+        }
+        }
+    }
+}
+
+var observeTime: (TimeInterval, Tracker&lt;(), Never&gt;?, @escaping (Date) -&gt; Void) -&gt; Void = { interval, cancel, callback  in
+    let t = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) {
+        callback($0.fireDate)
+    }
+    if let cancel = cancel {
+        registerTracker(cancel) { [weak t] _,_ in
+            t?.invalidate()
+        }
+    } 
+}
+
+enum AppAction {
+    case log(String)
+    case onViewAppear
+    case newDate(Date)
+    case onToggleIsPaused
+}
+
+struct AppState {
+    var log: String = ""
+    var cancelObserveTimeTracker: Tracker&lt;(), Never&gt;?
+    var hasLoaded: Bool = false
+    var currentTime: Date
+    var isPaused: Bool = true
+    
+    mutating func update(action: AppAction) -&gt; [Effect&lt;AppAction&gt;] {
+        switch action {
+            case let .log(newLog):
+            log = newLog
+            return []
+            case .onViewAppear:
+                guard !hasLoaded else { return [] } 
+                hasLoaded = true
+                //cancelObserveTimeTracker = Tracker()
+            return [
+                //{ [cancel = self.cancelObserveTimeTracker] callback in 
+                //observeTime(1, cancel) { callback(.newDate($0))
+            //}
+            //}
+            ]
+            case let .newDate(newDate):
+                //guard !isPaused else { return [] }
+            currentTime = newDate
+            return []
+            case let .onToggleIsPaused:
+                isPaused.toggle()
+                let cancelEffect:Effect&lt;AppAction&gt;? = self.cancelObserveTimeTracker?.run(with: ()) { switch $0 {}
+                }
+                if isPaused {
+                    cancelObserveTimeTracker = nil
+                } else {
+                    assert(cancelObserveTimeTracker == nil)
+                    cancelObserveTimeTracker = Tracker()
+                }
+            return [
+                isPaused ? cancelEffect :
+                    { [cancel = self.cancelObserveTimeTracker] callback in 
+                        observeTime(1, cancel) { callback(.newDate($0))
+                        }
+                    }
+                
+            ].compactMap { $0 }
+        }
+    }
+    
+}
+typealias Reducer&lt;Value, Action&gt; = (inout Value, Action) -&gt; [Effect&lt;Action&gt;]
+
+final class Store&lt;Value, Action&gt;: ObservableObject {
+    private let reducer: Reducer&lt;Value, Action&gt;
+    @Published private(set) var value: Value
+    private var cancellable: Cancellable?
+    init(initialValue: Value, reducer: @escaping Reducer&lt;Value, Action&gt;) {
+        self.reducer = reducer
+        self.value = initialValue
+    }
+    func send(_ action: Action) {
+        let effects = self.reducer(&amp;self.value, action)
+        effects.forEach { effect in //todo queue them
+            effect(self.send)
+        }
+    }
+    func binding&lt;Subject&gt;(from: KeyPath&lt;Value, Subject&gt;, withAction transform: @escaping (Subject) -&gt; Action) -&gt; Binding&lt;Subject&gt; { 
+        Binding(get: { [unowned self] in
+            self.value[keyPath: from]
+        }) { [weak self] (newValue, _) in
+            self?.send(transform(newValue))
+        }
+    }
+}
+
+struct AppView: View {
+    @ObservedObject var store: Store&lt;AppState, AppAction&gt;
+    var body: some View {
+        VStack {
+            Text(verbatim: store.value.log)
+            Text(String(describing: store.value.currentTime))
+            ClockView(date: store.binding(from: \.currentTime, withAction: { .newDate($0) }), isPaused: store.binding(from: \.isPaused, withAction: { _ in .onToggleIsPaused }))
+        }
+        .onAppear(perform: store.value.hasLoaded ? nil : {
+            DispatchQueue.main.async {
+                self.store.send(.onViewAppear)
+            } 
+            })
+    }
+}
+
+struct ClockView: View {
+    @Environment(\.calendar) var calendar
+    @Binding var date: Date
+    @Binding var isPaused: Bool
+    
+    var body: some View {
+        GeometryReader { geometry in 
+            Text(verbatim: String(describing: geometry.size))
+            self.clockFace(diameter: geometry.size.width)
+        }
+        
+    }
+    func clockFace(diameter: CGFloat) -&gt; some View {
+        let radius = diameter / 2
+        let hourHandLenght = radius * 0.6
+        
+        func hand(length: CGFloat, angle: CGFloat, onDrag: @escaping (CGFloat) -&gt; Void) -&gt; some View {
+            Rectangle()
+                .frame(width: 8, height: length)
+                .transformEffect(CGAffineTransform.identity.translatedBy(x: 0, y: length / 2)
+                    .rotated(by: angle)
+                    .translatedBy(x: 0, y: -(length))
+            )
+                .gesture(DragGesture(coordinateSpace: .global)
+                .onChanged { drag in
+                    let x = drag.location.applying(CGAffineTransform(translationX: -radius, y: -radius)) //known issue: y isnt precisely centered
+                    onDrag(x.x / x.y)
+                    //log(String(describing: x))
+            
+                    //guard self.editMode?.wrappedValue.isEditing ?? false else { return }
+                    self.date = self.date.addingTimeInterval(60) //self.send(.onDragSecondHand(drag.location))
+            })
+        }
+        
+        return ZStack { 
+            Circle()
+                .foregroundColor(Color(.gray))
+                .frame(width: radius * 2, height: radius * 2, alignment: .center)
+            Rectangle()
+                .frame(width: 8, height: radius / 2)
+                .transformEffect(CGAffineTransform.identity.translatedBy(x: 0, y: radius / 4)
+                    .rotated(by: self.radians(for: .hour))
+                    .translatedBy(x: 0, y: -(radius / 2))
+            )
+            hand(length: radius * 0.75, angle: radians(for: .hour), onDrag: { 
+                log(String(describing: $0))
+            })
+            Rectangle()
+                .frame(width: 8, height: 280)
+                .transformEffect(CGAffineTransform.identity.translatedBy(x: 0, y: 140)
+                    .rotated(by: self.radians(for: .second))
+                    .translatedBy(x: 0, y: -280)
+            )
+                .gesture(DragGesture(coordinateSpace: .local)
+                    .onChanged { drag in
+                        //guard self.editMode?.wrappedValue.isEditing ?? false else { return }
+                        print(drag.location)
+                        self.date = self.date.addingTimeInterval(1) //self.send(.onDragSecondHanjd(drag.location))
+                })
+        Button(action: { self.isPaused.toggle()
+        }) { 
+            Text(store.value.isPaused ? "▶️" : "⏸")
+            .font(Font.system(size: 50))
+        }
+    }
+    }
+    func radians(for component: Calendar.Component) -&gt; CGFloat {
+        let percent = CGFloat(calendar.component(component, from: date)) / CGFloat(component.maxValue)
+        return percent * 2 * CGFloat.pi
+    }
+}
+let store = Store&lt;AppState, AppAction&gt;(initialValue: AppState(currentTime: Date()), reducer: { $0.update(action: $1) })
+log = { store.send(.log($0))}
+PlaygroundPage.current.setLiveView(AppView(store: store))
+</string>
+			<key>ModifiedRange</key>
+			<string>{0, 8132}</string>
+			<key>OriginalContent</key>
+			<string>
+</string>
+			<key>OriginalRange</key>
+			<string>{0, 1}</string>
+		</dict>
+	</array>
+	<key>FormatVersion</key>
+	<integer>2</integer>
+</dict>
+</plist>

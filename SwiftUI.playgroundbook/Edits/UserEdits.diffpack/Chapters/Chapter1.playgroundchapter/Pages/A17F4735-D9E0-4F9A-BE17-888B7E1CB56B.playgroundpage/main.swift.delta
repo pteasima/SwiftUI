@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>BaseFile</key>
+	<string>Chapters/Chapter1.playgroundchapter/Pages/Template.playgroundpage/main.swift</string>
+	<key>Diffs</key>
+	<array>
+		<dict>
+			<key>ModifiedContent</key>
+			<string>import Foundation
+import Combine
+
+func get&lt;T: Decodable&gt;(_ type: T.Type = T.self, path: String) -&gt; AnyPublisher&lt;T, Error&gt;{
+    Empty().eraseToAnyPublisher()
+}
+
+// just a tag which BaseEffect doesnt implement (unless someone was stupid enough to do so in an extension)
+// this means that while BaseEffects can be created, they are useless as reducer must return an Effect
+protocol EffectProtocol {} 
+open class BaseEffect&lt;Action&gt; {
+    fileprivate(set) var perform: () -&gt; AnyPublisher&lt;Action, Never&gt; = { Empty().eraseToAnyPublisher() }
+}
+typealias Effect&lt;Action&gt; = BaseEffect&lt;Action&gt; &amp; EffectProtocol
+
+
+class Get&lt;T: Decodable, Action&gt;: Effect&lt;Action&gt; {
+    required init(path: String, transform: @escaping (T) -&gt; Action) {
+        super.init()
+        
+    }
+    
+}
+final class MockGet&lt;T: Decodable, Action&gt;: Get&lt;T, Action&gt; {
+    
+
+    
+}
+var type: Get&lt;String, String&gt;.Type = MockGet&lt;String,String&gt;.self
+type.init(path: "", transform: { $0 })
+
+    
+</string>
+			<key>ModifiedRange</key>
+			<string>{1, 948}</string>
+			<key>OriginalContent</key>
+			<string></string>
+			<key>OriginalRange</key>
+			<string>{1, 0}</string>
+		</dict>
+	</array>
+	<key>FormatVersion</key>
+	<integer>2</integer>
+</dict>
+</plist>
