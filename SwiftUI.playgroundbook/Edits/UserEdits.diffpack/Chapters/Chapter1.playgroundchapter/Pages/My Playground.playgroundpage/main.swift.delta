@@ -10,6 +10,7 @@
 import Combine
 import PlaygroundSupport
 
+
 var log: (String) -&gt; Void = { _ in }
 
 struct Tagged&lt;Tag, RawValue&gt; {
@@ -221,7 +222,7 @@ log = { store.send(.log($0))}
 PlaygroundPage.current.setLiveView(AppView(store: store))
 </string>
 			<key>ModifiedRange</key>
-			<string>{0, 8132}</string>
+			<string>{0, 8133}</string>
 			<key>OriginalContent</key>
 			<string>
 </string>

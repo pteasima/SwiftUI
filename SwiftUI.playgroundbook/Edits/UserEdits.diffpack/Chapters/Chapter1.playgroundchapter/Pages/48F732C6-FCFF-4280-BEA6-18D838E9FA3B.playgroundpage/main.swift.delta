@@ -8,21 +8,62 @@
 	<array>
 		<dict>
 			<key>ModifiedContent</key>
-			<string>import Combine
+			<string>import SwiftUI
+import PencilKit
+import PlaygroundSupport
 
-func foo() -&gt; some Publisher {
-    Just("")
+final class PickerObserver: NSObject, PKToolPickerObserver {
+    func toolPickerVisibilityDidChange(_ toolPicker: PKToolPicker) {
+        toolPicker
+    }
+    func toolPickerFramesObscuredDidChange(_ toolPicker: PKToolPicker) {
+        toolPicker
+    }
+    func toolPickerIsRulerActiveDidChange(_ toolPicker: PKToolPicker) {
+        toolPicker
+    }
+    deinit {
+        ":("
+    }
+}
+let pickerObserver = PickerObserver() 
+
+let canvas = PKCanvasView()
+
+struct Canvas: UIViewRepresentable {
+    func updateUIView(_ uiView: PKCanvasView, context: UIViewRepresentableContext&lt;Canvas&gt;) {
+        
+    }
+
+    func makeUIView(context: UIViewRepresentableContext&lt;Canvas&gt;) -&gt; PKCanvasView {
+        canvas
+    }
 }
 
-let x = 
+struct AppView: View {
+    var body: some View {
+        Canvas()
+        .onAppear {
+            DispatchQueue.main.async {
+                let picker = PKToolPicker.shared(for: canvas.window!)
+                picker?.setVisible(true, forFirstResponder: canvas)
+                picker?.addObserver(canvas)
+                picker?.addObserver(pickerObserver)
+                canvas.becomeFirstResponder()
+            }
+        }
+    }
+}
+
+PlaygroundPage.current.setLiveView(AppView())
+
 </string>
 			<key>ModifiedRange</key>
-			<string>{0, 72}</string>
+			<string>{0, 1249}</string>
 			<key>OriginalContent</key>
-			<string>
-</string>
+			<string></string>
 			<key>OriginalRange</key>
-			<string>{0, 1}</string>
+			<string>{0, 0}</string>
 		</dict>
 	</array>
 	<key>FormatVersion</key>
